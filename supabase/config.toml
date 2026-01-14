@@ -1,0 +1,45 @@
+import_map = "functions/import_map.json"
+
+project_id = "jmzqtjxwmmbgbjrelveq"
+
+[functions.atualizar-cpfs-ativos]
+verify_jwt = false
+
+[functions.validar-cpf]
+verify_jwt = false
+
+[functions.criar-agendamento]
+verify_jwt = false
+
+[functions.horarios-disponiveis]
+verify_jwt = false
+
+[functions.exportar-dados]
+verify_jwt = false
+
+[functions.admin-auth]
+verify_jwt = false
+
+[functions.gerenciar-datas]
+verify_jwt = false
+
+[functions.usuario-cancelar-agendamento]
+verify_jwt = false
+
+[functions.delete_cpf]
+verify_jwt = false
+
+[functions.inserir_cpf]
+verify_jwt = false
+
+[functions.adm-visualizar-cpf]
+verify_jwt = false
+
+[functions.consultar-agendamentos]
+verify_jwt = false
+
+[functions.adm-visualizar-agendamentos]
+verify_jwt = false
+
+[functions.adm-cancelar-agendamento]
+verify_jwt = false

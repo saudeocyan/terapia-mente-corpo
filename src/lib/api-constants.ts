@@ -1,0 +1,15 @@
+export const API_URLS = {
+    ADMIN_AUTH: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-auth`,
+    HORARIOS_DISPONIVEIS: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/horarios-disponiveis`,
+    VALIDAR_CPF: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validar-cpf`,
+    CRIAR_AGENDAMENTO: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/criar-agendamento`,
+    CONSULTAR_AGENDAMENTOS: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/consultar-agendamentos`,
+    USUARIO_CANCELAR_AGENDAMENTO: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/usuario-cancelar-agendamento`,
+    ADM_VISUALIZAR_AGENDAMENTOS: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/adm-visualizar-agendamentos`,
+    ADM_CANCELAR_AGENDAMENTO: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/adm-cancelar-agendamento`,
+    ADM_VISUALIZAR_CPF: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/adm-visualizar-cpf`,
+    INSERIR_CPF: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/inserir_cpf`,
+    DELETE_CPF: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete_cpf`,
+    ATUALIZAR_CPFS_ATIVOS: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/atualizar-cpfs-ativos`,
+    GERENCIAR_DATAS: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gerenciar-datas`,
+};

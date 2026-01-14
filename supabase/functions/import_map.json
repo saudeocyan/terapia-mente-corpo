@@ -1,0 +1,8 @@
+{
+  "imports": {
+    "shared/": "./_shared/",
+    "std/": "https://deno.land/std@0.208.0/",
+    "djwt": "https://deno.land/x/djwt@v3.0.2/mod.ts",
+    "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+  }
+}

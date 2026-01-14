@@ -1,0 +1,53 @@
+{
+  "titulo": "Correção de Divergência de Datas - Módulo de Agendamento",
+  "problema_identificado": {
+    "descricao": "Divergência de datas entre agendamento e exibição na área admin devido a problemas de fuso horário",
+    "causa": "Uso inconsistente de UTC vs timezone local (America/Sao_Paulo) nas conversões de data"
+  },
+  "alteracoes_realizadas": {
+    "dependencia_adicionada": {
+      "package": "date-fns-tz@latest",
+      "motivo": "Biblioteca para trabalhar corretamente com timezones"
+    },
+    "frontend_booking": {
+      "arquivo": "src/pages/Booking.tsx",
+      "alteracoes": [
+        "Importação das funções formatInTimeZone e toZonedTime",
+        "Função fetchAvailableDates: conversão de datas usando timezone America/Sao_Paulo",
+        "Função isDateAvailable: verificação de datas no timezone correto",
+        "Calendário: formatação de datas usando timezone Brasil",
+        "Exibição de horários: formatação correta da data selecionada com função personalizada"
+      ]
+    },
+    "frontend_admin": {
+      "arquivo": "src/pages/admin/Agenda.tsx", 
+      "alteracoes": [
+        "Importação das funções formatInTimeZone, toZonedTime e parseISO",
+        "Filtro agendamentosHoje: comparação usando timezone Brasil",
+        "Exibição de datas: formatação usando timezone América/São Paulo"
+      ]
+    },
+    "backend": {
+      "arquivo": "supabase/functions/criar-agendamento/index.ts",
+      "alteracoes": [
+        "Verificação de agendamento na semana: criação de datas com timezone correto",
+        "Validação de limite de 30 dias: configuração precisa de horas e timezone"
+      ]
+    }
+  },
+  "configuracao_timezone": {
+    "timezone_configurado": "America/Sao_Paulo",
+    "aplicacao": "Todas as operações de data agora usam consistentemente o timezone do Brasil"
+  },
+  "resultado_esperado": {
+    "agendamento": "Datas salvas corretamente no timezone Brasil",
+    "exibicao_admin": "Datas exibidas sem divergência de dias",
+    "consistencia": "Eliminação de diferenças de timezone entre frontend e backend"
+  },
+  "funcionalidades_afetadas": [
+    "Agendamento de sessões (página /booking)",
+    "Visualização de agenda admin (/admin/agenda)",
+    "Validação de datas disponíveis",
+    "Verificação de limites de agendamento"
+  ]
+}
