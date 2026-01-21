@@ -5,13 +5,23 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- 1. MIGRATION: Agendamentos
 -- ========================================
 
+-- ========================================
+-- 1. MIGRATION: Agendamentos
+-- ========================================
+
 -- Add hash column
 ALTER TABLE public.agendamentos 
 ADD COLUMN IF NOT EXISTS cpf_hash text;
 
--- Populate hash column from existing data (cleaning non-digits)
-UPDATE public.agendamentos
-SET cpf_hash = encode(digest(regexp_replace(cpf, '\D', '', 'g'), 'sha256'), 'hex');
+-- Populate hash column safely (only if cpf exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'agendamentos' AND column_name = 'cpf') THEN
+        UPDATE public.agendamentos
+        SET cpf_hash = encode(digest(regexp_replace(cpf, '\D', '', 'g'), 'sha256'), 'hex')
+        WHERE cpf_hash IS NULL;
+    END IF;
+END $$;
 
 -- Create index for performance
 CREATE INDEX IF NOT EXISTS idx_agendamentos_cpf_hash ON public.agendamentos(cpf_hash);
@@ -27,9 +37,15 @@ CREATE INDEX IF NOT EXISTS idx_agendamentos_cpf_hash ON public.agendamentos(cpf_
 ALTER TABLE public.cpf_habilitado 
 ADD COLUMN IF NOT EXISTS cpf_hash text;
 
--- Populate hash column
-UPDATE public.cpf_habilitado
-SET cpf_hash = encode(digest(regexp_replace(cpf, '\D', '', 'g'), 'sha256'), 'hex');
+-- Populate hash column safely (only if cpf exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'cpf_habilitado' AND column_name = 'cpf') THEN
+        UPDATE public.cpf_habilitado
+        SET cpf_hash = encode(digest(regexp_replace(cpf, '\D', '', 'g'), 'sha256'), 'hex')
+        WHERE cpf_hash IS NULL;
+    END IF;
+END $$;
 
 -- Create index
 CREATE INDEX IF NOT EXISTS idx_cpf_habilitado_cpf_hash ON public.cpf_habilitado(cpf_hash);
@@ -86,8 +102,7 @@ BEGIN
 
   -- Update status
   UPDATE public.agendamentos
-  SET status = 'cancelado',
-      atualizado_em = now()
+  SET status = 'cancelado'
   WHERE id = agendamento_id;
 
   RETURN json_build_object('success', true, 'message', 'Agendamento cancelado com sucesso.');
@@ -138,6 +153,7 @@ $$;
 
 -- Only drop after data is migrated
 ALTER TABLE public.agendamentos DROP COLUMN IF EXISTS cpf;
+ALTER TABLE public.cpf_habilitado DROP COLUMN IF EXISTS cpf;
 -- Handle agendamentos_historico table (Create or Migrate)
 DO $$
 BEGIN
