@@ -109,188 +109,148 @@ export const ListaPresenca = () => {
   }, [agendamentosDoDia]);
 
   const handlePrint = () => {
+    // Criamos uma janela limpa para montar o documento oficial
     const printWindow = window.open("", "_blank");
 
-    // Configurações de estilo e cores baseadas na Ocyan e design limpo
+    // DEFINIÇÃO DO DESIGN CORPORATIVO (CSS puro para impressão)
     const styles = `
-      @page { size: A4 portrait; margin: 10mm 10mm 30mm 10mm; }
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+      @page { size: A4 portrait; margin: 10mm; }
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
       
-      html, body { 
-        width: 210mm; 
-        margin: 0; 
-        padding: 0; 
-        background: white; 
-        font-family: 'Inter', sans-serif;
-        color: #1e293b;
+      body { 
+        font-family: 'Inter', sans-serif; 
+        color: #1e293b; 
         -webkit-print-color-adjust: exact; 
-        print-color-adjust: exact; 
+        print-color-adjust: exact;
+        margin: 0;
       }
       
-      .container { 
-        width: 100%; 
-        max-width: 190mm; 
-        margin: 0 auto; 
-      }
-
-      /* Cabeçalho do Documento */
-      .doc-header {
+      .container { max-width: 190mm; margin: 0 auto; }
+      
+      /* Cabeçalho */
+      .header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 10mm;
+        border-bottom: 2px solid #009ebf; /* Azul destaque Ocyan */
         padding-bottom: 5mm;
-        border-bottom: 2px solid #0ea5e9;
+        margin-bottom: 8mm;
       }
-      
-      .logo-container img {
-        height: 50px;
-        width: auto;
+      .logo img { height: 45px; width: auto; }
+      .title-block { text-align: right; }
+      .doc-title { 
+        font-size: 18pt; font-weight: 700; color: #0f172a; margin: 0; text-transform: uppercase; 
       }
-      
-      .doc-info {
-        text-align: right;
-      }
-      
-      .doc-title {
-        font-size: 18pt;
-        font-weight: 700;
-        color: #0f172a;
-        margin: 0;
-        text-transform: uppercase;
-      }
-      
-      .doc-date {
-        font-size: 11pt;
-        color: #64748b;
-        margin-top: 2mm;
-      }
+      .doc-date { font-size: 10pt; color: #64748b; margin-top: 2mm; }
 
       /* Tabela */
-      table { 
-        width: 100%; 
-        border-collapse: collapse; 
-        font-size: 10pt; 
-        margin-bottom: 5mm;
-      }
+      table { width: 100%; border-collapse: collapse; font-size: 10pt; }
       
+      /* Cabeçalho da Tabela */
       thead th { 
-        background-color: #0f172a;
-        color: white; 
-        padding: 4mm 3mm; 
-        text-transform: uppercase; 
-        font-size: 9pt;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        text-align: left;
-      }
-      
-      /* Ajustes específicos de colunas */
-      th.col-time, td.col-time { width: 15%; text-align: center; }
-      th.col-name, td.col-name { width: 50%; text-align: left; }
-      th.col-sign, td.col-sign { width: 35%; text-align: center; }
-
-      tbody tr { 
-        border-bottom: 1px solid #e2e8f0; 
-        page-break-inside: avoid;
-        break-inside: avoid;
-      }
-      tbody tr:nth-child(even) { background-color: #f8fafc; }
-
-      td { padding: 3mm 4mm; vertical-align: middle; }
-
-      .time-slot {
-        font-weight: 700;
-        color: #0369a1;
-        background: #e0f2fe;
-        padding: 1mm 3mm;
-        border-radius: 4px;
-        display: inline-block;
-      }
-
-      .name-text {
-        font-size: 11pt;
-        font-weight: 500;
-      }
-
-      .signature-line {
-        margin-top: 6mm;
-        border-bottom: 1px solid #94a3b8;
-        width: 90%;
-        margin-left: auto;
-        margin-right: auto;
-      }
-      
-      .footer {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 15mm;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        background-color: #f1f5f9; 
+        color: #334155;
+        border-bottom: 2px solid #cbd5e1;
+        padding: 4mm;
+        text-transform: uppercase;
         font-size: 8pt;
-        color: #94a3b8;
-        border-top: 1px solid #e2e8f0;
-        background: white;
-        z-index: 10;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+      
+      /* Alinhamentos */
+      .th-time, .td-time { width: 15%; text-align: center; }
+      .th-name, .td-name { width: 50%; text-align: left; padding-left: 5mm; }
+      .th-sign, .td-sign { width: 35%; text-align: center; }
+
+      /* Linhas */
+      tbody tr { border-bottom: 1px solid #e2e8f0; }
+      td { padding: 4mm 2mm; vertical-align: middle; }
+
+      /* Destaque de Horário */
+      .time-badge {
+        background: #e0f2fe;
+        color: #0284c7;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 9pt;
+      }
+
+      /* Linha de Assinatura */
+      .sign-line {
+        border-bottom: 1px solid #94a3b8;
+        width: 80%;
+        margin: 0 auto;
+        height: 8mm;
+      }
+
+      /* Rodapé */
+      .footer {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        text-align: center; font-size: 8pt; color: #94a3b8;
+        border-top: 1px solid #f1f5f9; padding-top: 2mm;
       }
     `;
 
-    // Gerar as linhas da tabela dinamicamente
-    const tableRows = formatTimeSlots().map((time, index, arr) => {
+    // GERAÇÃO DO CONTEÚDO
+    const slots = formatTimeSlots();
+
+    const tableRows = slots.length > 0 ? slots.map((time, index, arr) => {
       const occurrenceIndex = arr.slice(0, index).filter((t) => t === time).length;
       const participant = getParticipantForTime(time, occurrenceIndex);
 
       return `
         <tr>
-          <td class="col-time">
-            <span class="time-slot">${time}</span>
+          <td class="td-time">
+            <span class="time-badge">${time}</span>
           </td>
-          <td class="col-name">
-            <span class="name-text">${participant || ""}</span>
+          <td class="td-name">
+            <strong>${participant || ""}</strong>
           </td>
-          <td class="col-sign">
-            <div class="signature-line"></div>
+          <td class="td-sign">
+            <div class="sign-line"></div>
           </td>
         </tr>
       `;
-    }).join("");
+    }).join("") : `<tr><td colspan="3" style="text-align:center; padding:10mm; color:#64748b;">Nenhum horário configurado.</td></tr>`;
 
     const htmlContent = `
+      <!DOCTYPE html>
       <html>
         <head>
-          <title>Lista de Presença - ${format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}</title>
+          <title>Lista de Presença - ${format(selectedDate, "dd/MM/yyyy")}</title>
           <style>${styles}</style>
         </head>
         <body>
           <div class="container">
-            <div class="doc-header">
-              <div class="logo-container">
+            <div class="header">
+              <div class="logo">
                 <img src="/lovable-uploads/835e1fa8-fc07-4a63-8846-ee304945053c.png" alt="Ocyan Logo" />
               </div>
-              <div class="doc-info">
+              <div class="title-block">
                 <h1 class="doc-title">Lista de Presença</h1>
-                <div class="doc-date">Data: ${format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</div>
+                <div class="doc-date">
+                  ${format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                </div>
               </div>
             </div>
 
             <table>
               <thead>
                 <tr>
-                  <th class="col-time">Horário</th>
-                  <th class="col-name">Nome do Colaborador</th>
-                  <th class="col-sign">Assinatura</th>
+                  <th class="th-time">Horário</th>
+                  <th class="th-name">Colaborador</th>
+                  <th class="th-sign">Assinatura</th>
                 </tr>
               </thead>
               <tbody>
-                ${formatTimeSlots().length > 0 ? tableRows : '<tr><td colspan="3" style="text-align:center; padding:10mm;">Nenhum horário configurado para este dia.</td></tr>'}
+                ${tableRows}
               </tbody>
             </table>
 
             <div class="footer">
-              Gerado pelo Sistema Terapia Mente e Corpo Ocyan em ${format(new Date(), "dd/MM/yyyy HH:mm")}
+              Gerado automaticamente pelo Sistema Terapia Mente e Corpo • Ocyan
             </div>
           </div>
         </body>
