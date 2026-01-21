@@ -77,12 +77,7 @@ export const AdminLogin = () => {
           </p>
         </CardHeader>
         <CardContent>
-          <Alert className="mb-6 bg-blue-50 border-blue-200">
-            <AlertTitle className="text-blue-800">Novo Sistema de Login</AlertTitle>
-            <AlertDescription className="text-blue-700">
-              O sistema de autenticação foi atualizado. Se você é um administrador, use suas credenciais do Supabase.
-            </AlertDescription>
-          </Alert>
+
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
