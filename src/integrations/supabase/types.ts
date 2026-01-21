@@ -19,7 +19,7 @@ export type Database = {
           area: string | null
           atualizado_em: string | null
           cancel_token_hash: string | null
-          cpf: string
+          cpf_hash: string
           criado_em: string | null
           data: string
           horario: string
@@ -31,7 +31,7 @@ export type Database = {
           area?: string | null
           atualizado_em?: string | null
           cancel_token_hash?: string | null
-          cpf: string
+          cpf_hash: string
           criado_em?: string | null
           data: string
           horario: string
@@ -43,7 +43,7 @@ export type Database = {
           area?: string | null
           atualizado_em?: string | null
           cancel_token_hash?: string | null
-          cpf?: string
+          cpf_hash?: string
           criado_em?: string | null
           data?: string
           horario?: string
@@ -98,21 +98,21 @@ export type Database = {
       cpf_habilitado: {
         Row: {
           area: string | null
-          cpf: string
+          cpf_hash: string
           criado_em: string | null
           id: string
           nome: string
         }
         Insert: {
           area?: string | null
-          cpf: string
+          cpf_hash: string
           criado_em?: string | null
           id?: string
           nome: string
         }
         Update: {
           area?: string | null
-          cpf?: string
+          cpf_hash?: string
           criado_em?: string | null
           id?: string
           nome?: string
@@ -157,6 +157,28 @@ export type Database = {
           cpf: string
           nome: string
         }[]
+      }
+      consultar_agendamentos_cpf: {
+        Args: {
+          cpf_busca: string
+        }
+        Returns: Database["public"]["Tables"]["agendamentos"]["Row"][]
+      }
+      cancelar_agendamento_usuario: {
+        Args: {
+          agendamento_id: string
+          cpf_confirmacao: string
+        }
+        Returns: Json
+      }
+      manage_cpf_habilitado: {
+        Args: {
+          action_type: string
+          cpf_param: string
+          nome_param?: string | null
+          area_param?: string | null
+        }
+        Returns: Json
       }
     }
     Enums: {

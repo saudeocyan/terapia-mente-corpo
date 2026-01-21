@@ -21,7 +21,7 @@ interface CpfRecord {
 interface AgendamentoHistoricoRecord {
   id: string;
   nome: string;
-  cpf: string;
+  cpf_hash: string;
   data: string;
   horario: string;
   status: string;
@@ -30,20 +30,21 @@ interface AgendamentoHistoricoRecord {
 }
 
 // Função auxiliar para copiar agendamentos ao histórico
-async function copiarAgendamentosParaHistorico(supabase: SupabaseClient, cpfs: string[]) {
-  if (cpfs.length === 0) {
+async function copiarAgendamentosParaHistorico(supabase: SupabaseClient, cpfsHashes: string[]) {
+  if (cpfsHashes.length === 0) {
     console.log("Nenhum CPF para remover, logo, nenhum agendamento para copiar ao histórico.");
     return 0;
   }
 
-  console.log(`Buscando agendamentos para ${cpfs.length} CPFs para copiar ao histórico...`);
+  console.log(`Buscando agendamentos para ${cpfsHashes.length} CPFs para copiar ao histórico...`);
 
-  const colunasParaCopiar = 'id, nome, cpf, data, horario, status, area, criado_em';
+  // Update columns to select cpf_hash instead of cpf
+  const colunasParaCopiar = 'id, nome, cpf_hash, data, horario, status, area, criado_em';
 
   const { data: agendamentosParaCopiar, error: erroBusca } = await supabase
-    .from('agendamentos')  // ✅ CORRIGIDO: nome correto da tabela
+    .from('agendamentos')
     .select(colunasParaCopiar)
-    .in('cpf', cpfs);
+    .in('cpf_hash', cpfsHashes);
 
   if (erroBusca) {
     console.error('Erro ao buscar agendamentos para copiar:', erroBusca);
@@ -88,19 +89,29 @@ serve(async (req) => {
     const registros: CpfRecord[] = await req.json();
 
     if (!Array.isArray(registros) || registros.length === 0) {
-      return new Response(JSON.stringify({ error: 'Lista de CPFs vazia ou inválida' }), { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      return new Response(JSON.stringify({ error: 'Lista de CPFs vazia ou inválida' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     console.log(`Recebidos ${registros.length} registros.`);
 
+    // Hash all incoming CPFs
+    const registrosComHash = await Promise.all(registros.map(async (r) => {
+      const cpfLimpo = r.cpf.replace(/\D/g, '');
+      const msgBuffer = new TextEncoder().encode(cpfLimpo);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const cpfHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      return { ...r, cpf_hash: cpfHash };
+    }));
+
     // ✅ CORREÇÃO 1: Remover duplicatas ANTES de processar
     const registrosUnicos = Array.from(
-      new Map(registros.map(r => [r.cpf, r])).values()
+      new Map(registrosComHash.map(r => [r.cpf_hash, r])).values()
     );
-    
+
     const duplicatasRemovidas = registros.length - registrosUnicos.length;
     if (duplicatasRemovidas > 0) {
       console.log(`⚠️ Removidas ${duplicatasRemovidas} duplicatas da planilha.`);
@@ -108,24 +119,24 @@ serve(async (req) => {
 
     const { data: cpfsAtuaisData, error: erroListagem } = await supabaseClient
       .from('cpf_habilitado')
-      .select('cpf');
+      .select('cpf_hash');
 
     if (erroListagem) throw new Error('Erro ao buscar CPFs existentes.');
 
     // ✅ CORREÇÃO 2: Type assertion explícito para evitar erro TS2345
     const cpfsAtuaisSet = new Set<string>(
-      (cpfsAtuaisData as Array<{ cpf: string }>)?.map(c => c.cpf) || []
+      (cpfsAtuaisData as Array<{ cpf_hash: string }>)?.map(c => c.cpf_hash) || []
     );
-    
-    const cpfsPlanilhaSet = new Set(registrosUnicos.map(r => r.cpf));
 
-    // Identifica CPFs para remover
-    const cpfsParaRemover = Array.from(cpfsAtuaisSet).filter(cpf => !cpfsPlanilhaSet.has(cpf));
+    const cpfsPlanilhaSet = new Set(registrosUnicos.map(r => r.cpf_hash));
+
+    // Identifica CPFs para remover (HASHES)
+    const cpfsParaRemover = Array.from(cpfsAtuaisSet).filter(hash => !cpfsPlanilhaSet.has(hash));
 
     console.log(`Identificado -> Remover: ${cpfsParaRemover.length}`);
 
     let agendamentosMovidos = 0;
-    
+
     // Lógica de Remoção
     if (cpfsParaRemover.length > 0) {
       console.log("Iniciando processo de cópia para histórico...");
@@ -135,7 +146,7 @@ serve(async (req) => {
       const { error: erroDeleteCpfs } = await supabaseClient
         .from('cpf_habilitado')
         .delete()
-        .in('cpf', cpfsParaRemover);
+        .in('cpf_hash', cpfsParaRemover);
 
       if (erroDeleteCpfs) {
         console.error('Erro ao deletar CPFs:', erroDeleteCpfs);
@@ -147,11 +158,18 @@ serve(async (req) => {
     // ✅ CORREÇÃO 3: Upsert com registros únicos
     if (registrosUnicos.length > 0) {
       console.log(`Iniciando "upsert" de ${registrosUnicos.length} registros (adicionar/atualizar)...`);
-      
+
+      // Prepare payload for DB (remove original cpf, keep cpf_hash)
+      const payload = registrosUnicos.map(r => ({
+        cpf_hash: r.cpf_hash,
+        nome: r.nome,
+        area: r.area
+      }));
+
       const { error: erroUpsert } = await supabaseClient
         .from('cpf_habilitado')
-        .upsert(registrosUnicos, {
-          onConflict: 'cpf'
+        .upsert(payload, {
+          onConflict: 'cpf_hash'
         });
 
       if (erroUpsert) {
@@ -162,9 +180,9 @@ serve(async (req) => {
     }
 
     // Mensagem final
-    const mensagem = `Sincronização concluída: ${cpfsParaRemover.length} removidos (${agendamentosMovidos} agendamentos movidos), ${registrosUnicos.length} CPFs adicionados/atualizados` + 
+    const mensagem = `Sincronização concluída: ${cpfsParaRemover.length} removidos (${agendamentosMovidos} agendamentos movidos), ${registrosUnicos.length} CPFs adicionados/atualizados` +
       (duplicatasRemovidas > 0 ? `, ${duplicatasRemovidas} duplicatas ignoradas.` : '.');
-    
+
     console.log(mensagem);
 
     return new Response(JSON.stringify({
@@ -175,18 +193,18 @@ serve(async (req) => {
         agendamentos_movidos: agendamentosMovidos,
         duplicatas_ignoradas: duplicatasRemovidas
       }
-    }), { 
-      status: 200, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Erro interno desconhecido';
     console.error('Erro em atualizar-cpfs-ativos:', errorMessage);
     const status = errorMessage.includes("Acesso não autorizado") || errorMessage.includes("Token inválido") ? 401 : 500;
-    return new Response(JSON.stringify({ error: errorMessage }), { 
-      status: status, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });

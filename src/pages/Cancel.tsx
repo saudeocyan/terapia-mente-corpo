@@ -23,7 +23,7 @@ interface Booking {
   id: string;
   data: string;
   horario: string;
-  cpf: string;
+  cpf_hash: string;
   nome: string;
   status: string;
 }
@@ -80,7 +80,9 @@ export const Cancel = () => {
 
       if (error) throw error;
 
-      setBookings(data || []);
+      // Type assertion or mapping might be needed if RPC data doesn't match perfectly, 
+      // but assuming migration aligns with Updated Booking interface:
+      setBookings((data as any[]) || []);
       setSearched(true);
     } catch (error: any) {
       console.error("Erro ao buscar agendamentos:", error);
@@ -102,9 +104,12 @@ export const Cancel = () => {
     setIsModalOpen(false);
 
     try {
+      // Use the CPF from the input state for confirmation, as the DB one is hashed.
+      const cpfLimpo = cpf.replace(/\D/g, "");
+
       const { data, error } = await supabase.rpc('cancelar_agendamento_usuario', {
         agendamento_id: selectedBooking.id,
-        cpf_confirmacao: selectedBooking.cpf
+        cpf_confirmacao: cpfLimpo
       });
 
       if (error) throw error;

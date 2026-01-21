@@ -23,7 +23,7 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const { cpf }: ValidarCpfRequest = await req.json();
-    
+
     console.log('=== DEBUG VALIDAR CPF ===');
     console.log('CPF recebido:', cpf);
     console.log('Tipo do CPF:', typeof cpf);
@@ -37,12 +37,19 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Validar e Hash do CPF
+    const cpfLimpo = cpf.replace(/\D/g, '');
+    const msgBuffer = new TextEncoder().encode(cpfLimpo);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const cpfHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
     // Verificar se CPF está habilitado
-    console.log('Fazendo query para CPF:', cpf);
+    console.log('Fazendo query para CPF Hash:', cpfHash);
     const { data, error } = await supabase
       .from('cpf_habilitado')
-      .select('cpf, nome')
-      .eq('cpf', cpf)
+      .select('cpf_hash, nome')
+      .eq('cpf_hash', cpfHash)
       .single();
 
     console.log('Resultado da query - data:', data);
@@ -61,7 +68,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('=== FIM DEBUG ===');
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         habilitado,
         nome: data?.nome || null,
         mensagem: habilitado ? 'CPF habilitado para agendamento' : 'CPF não encontrado na lista de habilitados'

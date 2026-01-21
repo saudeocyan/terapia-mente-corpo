@@ -25,7 +25,7 @@ import {
 interface Agendamento {
   id: string;
   nome: string;
-  cpf: string;
+  cpf_hash: string;
   data: string;
   horario: string;
   status: string;

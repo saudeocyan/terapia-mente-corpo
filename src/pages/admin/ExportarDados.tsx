@@ -52,7 +52,16 @@ const AdminExportarDados: React.FC = () => {
       }
 
       if (filtroCpf) {
-        query = query.eq('cpf', filtroCpf.replace(/\D/g, ''));
+        // Hash the input CPF to match the DB column
+        const cleanCpf = filtroCpf.replace(/\D/g, '');
+        if (cleanCpf) {
+          const msgBuffer = new TextEncoder().encode(cleanCpf);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+          query = query.eq('cpf_hash', hashHex);
+        }
       }
 
       const { data, error } = await query;
@@ -75,11 +84,11 @@ const AdminExportarDados: React.FC = () => {
       if (formatoExportacao === 'csv') {
         mimeType = "text/csv;charset=utf-8;";
         filename += ".csv";
-        const headers = ["ID", "Nome", "CPF", "Data", "Horário", "Status", "Criado em"];
+        const headers = ["ID", "Nome", "CPF (Hash)", "Data", "Horário", "Status", "Criado em"];
         const rows = data.map(item => [
           item.id,
           item.nome,
-          item.cpf,
+          (item as any).cpf_hash || (item as any).cpf || "", // Support both migration states visually if needed, but DB dictates hash
           item.data,
           item.horario,
           item.status || "Pendente",

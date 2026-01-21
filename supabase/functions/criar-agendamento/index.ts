@@ -25,13 +25,20 @@ const handler = async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Hash do CPF
+    const cpfLimpo = cpf.replace(/\D/g, '');
+    const msgBuffer = new TextEncoder().encode(cpfLimpo);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const cpfHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
     // Verificar se CPF está habilitado
     const { data: cpfData, error: cpfError } = await supabase
       .from('cpf_habilitado')
-      .select('cpf, nome, area')
-      .eq('cpf', cpf)
+      .select('cpf_hash, nome, area')
+      .eq('cpf_hash', cpfHash)
       .single();
-      
+
     if (cpfError || !cpfData) {
       return new Response(JSON.stringify({ error: 'CPF não está habilitado para agendamento' }), {
         status: 403,
@@ -50,11 +57,11 @@ const handler = async (req: Request) => {
     const { data: agendamentoExistente, error: checkError } = await supabase
       .from('agendamentos')
       .select('id')
-      .eq('cpf', cpf)
+      .eq('cpf_hash', cpfHash)
       .eq('status', 'confirmado')
       .gte('data', inicioSemana.toISOString().split('T')[0])
       .lte('data', fimSemana.toISOString().split('T')[0]);
-        
+
     if (checkError) throw checkError;
 
     if (agendamentoExistente && agendamentoExistente.length > 0) {
@@ -71,12 +78,12 @@ const handler = async (req: Request) => {
       .eq('data', data)
       .eq('horario', horario)
       .eq('status', 'confirmado');
-      
+
     const { data: config } = await supabase
       .from('configuracoes_disponibilidade')
       .select('vagas_por_horario')
       .maybeSingle();
-    
+
     const vagasOcupadas = agendamentosHorario?.length || 0;
     const vagasDisponiveis = config?.vagas_por_horario || 1;
 
@@ -86,14 +93,14 @@ const handler = async (req: Request) => {
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
-    
+
     // Criar agendamento
     const nomeCompleto = cpfData.nome || nome;
     const { data: novoAgendamento, error } = await supabase
       .from('agendamentos')
       .insert({
         nome: nomeCompleto,
-        cpf,
+        cpf_hash: cpfHash,
         data,
         horario,
         status: 'confirmado',
@@ -124,9 +131,9 @@ const handler = async (req: Request) => {
     // ✅ CORREÇÃO: Type guard adicionado
     const errorMessage = error instanceof Error ? error.message : 'Erro interno desconhecido';
     console.error('Erro ao processar agendamento:', errorMessage);
-    
-    return new Response(JSON.stringify({ 
-      error: 'Erro interno do servidor: ' + errorMessage 
+
+    return new Response(JSON.stringify({
+      error: 'Erro interno do servidor: ' + errorMessage
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
