@@ -109,41 +109,191 @@ export const ListaPresenca = () => {
   }, [agendamentosDoDia]);
 
   const handlePrint = () => {
-    const printContent = document.getElementById("lista-presenca");
-    if (printContent) {
-      const printWindow = window.open("", "_blank");
-      printWindow?.document.write(`
-        <html>
-          <head>
-            <title>Lista de Presença - ${format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}</title>
-            <style>
-              @page { size: A4 portrait; margin: 12mm; }
-              html, body { width: 210mm; height: 297mm; margin: 0; padding: 0; }
-              * { box-sizing: border-box; }
-              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #334155; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-              .container { width: 100%; max-width: 190mm; margin: 0 auto; padding: 0; background: white; }
-              .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8mm; padding-bottom: 4mm; border-bottom: 1px solid #e2e8f0; }
-              .logo { width: 32mm; height: auto; object-fit: contain; }
-              table { width: 100%; border-collapse: collapse; border-spacing: 0; background: white; font-size: 10pt; }
-              thead th { background: #1e293b; color: white; padding: 3.5mm 3mm; text-align: center; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; border-right: 1px solid #475569; }
-              thead th:last-child { border-right: none; }
-              tbody td { padding: 3mm; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; text-align: center; vertical-align: middle; }
-              tbody td:last-child { border-right: none; }
-              tr:nth-child(even) td { background: #f8fafc; }
-              .time-cell { font-weight: 700; color: #1d4ed8; background: #e0e7ff; }
-              .signature-cell { min-height: 12mm; position: relative; }
-              .signature-cell::after { content: ''; position: absolute; bottom: 2mm; left: 3mm; right: 3mm; height: 0; border-top: 1px dotted #94a3b8; }
-              thead { display: table-header-group; }
-            </style>
-          </head>
-          <body>
-            <div class="container">${printContent.innerHTML}</div>
-          </body>
-        </html>
-      `);
-      printWindow?.document.close();
+    const printWindow = window.open("", "_blank");
+
+    // Configurações de estilo e cores baseadas na Ocyan e design limpo
+    const styles = `
+      @page { size: A4 portrait; margin: 10mm; }
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+      
+      html, body { 
+        width: 210mm; 
+        margin: 0; 
+        padding: 0; 
+        background: white; 
+        font-family: 'Inter', sans-serif;
+        color: #1e293b;
+        -webkit-print-color-adjust: exact; 
+        print-color-adjust: exact; 
+      }
+      
+      .container { 
+        width: 100%; 
+        max-width: 190mm; 
+        margin: 0 auto; 
+      }
+
+      /* Cabeçalho do Documento */
+      .doc-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10mm;
+        padding-bottom: 5mm;
+        border-bottom: 2px solid #0ea5e9;
+      }
+      
+      .logo-container img {
+        height: 50px;
+        width: auto;
+      }
+      
+      .doc-info {
+        text-align: right;
+      }
+      
+      .doc-title {
+        font-size: 18pt;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0;
+        text-transform: uppercase;
+      }
+      
+      .doc-date {
+        font-size: 11pt;
+        color: #64748b;
+        margin-top: 2mm;
+      }
+
+      /* Tabela */
+      table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        font-size: 10pt; 
+      }
+      
+      thead th { 
+        background-color: #0f172a;
+        color: white; 
+        padding: 4mm 3mm; 
+        text-transform: uppercase; 
+        font-size: 9pt;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-align: left;
+      }
+      
+      /* Ajustes específicos de colunas */
+      th.col-time, td.col-time { width: 15%; text-align: center; }
+      th.col-name, td.col-name { width: 50%; text-align: left; }
+      th.col-sign, td.col-sign { width: 35%; text-align: center; }
+
+      tbody tr { border-bottom: 1px solid #e2e8f0; }
+      tbody tr:nth-child(even) { background-color: #f8fafc; }
+
+      td { padding: 3mm 4mm; vertical-align: middle; }
+
+      .time-slot {
+        font-weight: 700;
+        color: #0369a1;
+        background: #e0f2fe;
+        padding: 1mm 3mm;
+        border-radius: 4px;
+        display: inline-block;
+      }
+
+      .name-text {
+        font-size: 11pt;
+        font-weight: 500;
+      }
+
+      .signature-line {
+        margin-top: 6mm;
+        border-bottom: 1px solid #94a3b8;
+        width: 90%;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      
+      .footer {
+        position: fixed;
+        bottom: 5mm;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 8pt;
+        color: #94a3b8;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 2mm;
+      }
+    `;
+
+    // Gerar as linhas da tabela dinamicamente
+    const tableRows = formatTimeSlots().map((time, index, arr) => {
+      const occurrenceIndex = arr.slice(0, index).filter((t) => t === time).length;
+      const participant = getParticipantForTime(time, occurrenceIndex);
+
+      return `
+        <tr>
+          <td class="col-time">
+            <span class="time-slot">${time}</span>
+          </td>
+          <td class="col-name">
+            <span class="name-text">${participant || ""}</span>
+          </td>
+          <td class="col-sign">
+            <div class="signature-line"></div>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Lista de Presença - ${format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}</title>
+          <style>${styles}</style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="doc-header">
+              <div class="logo-container">
+                <img src="/lovable-uploads/835e1fa8-fc07-4a63-8846-ee304945053c.png" alt="Ocyan Logo" />
+              </div>
+              <div class="doc-info">
+                <h1 class="doc-title">Lista de Presença</h1>
+                <div class="doc-date">Data: ${format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</div>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th class="col-time">Horário</th>
+                  <th class="col-name">Nome do Colaborador</th>
+                  <th class="col-sign">Assinatura</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${formatTimeSlots().length > 0 ? tableRows : '<tr><td colspan="3" style="text-align:center; padding:10mm;">Nenhum horário configurado para este dia.</td></tr>'}
+              </tbody>
+            </table>
+
+            <div class="footer">
+              Gerado pelo Sistema Terapia Mente e Corpo Ocyan em ${format(new Date(), "dd/MM/yyyy HH:mm")}
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow?.document.write(htmlContent);
+    printWindow?.document.close();
+
+    setTimeout(() => {
       printWindow?.print();
-    }
+    }, 500);
   };
 
   const formatTimeSlots = () => {
