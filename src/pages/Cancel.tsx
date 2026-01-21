@@ -7,9 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Layout } from "@/components/Layout";
 import { ArrowLeft, Search, Calendar, Clock, User, AlertTriangle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-// REMOVIDO: supabase client não é mais necessário aqui
-// import { supabase } from "@/integrations/supabase/client";
-import { API_URLS } from "@/lib/api-constants";
+import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,9 +32,6 @@ export const Cancel = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [cpf, setCpf] = useState("");
-
-  // REMOVIDO: Estado do cancelToken
-  // const [cancelToken, setCancelToken] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -78,18 +73,18 @@ export const Cancel = () => {
     setSearched(false);
     try {
       const cpfLimpo = cpf.replace(/\D/g, "");
-      const response = await fetch(
-        `${API_URLS.CONSULTAR_AGENDAMENTOS}?cpf=${cpfLimpo}`,
-      );
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Não foi possível buscar os agendamentos.");
-      }
+
+      const { data, error } = await supabase.rpc('consultar_agendamentos_cpf', {
+        cpf_busca: cpfLimpo
+      });
+
+      if (error) throw error;
+
       setBookings(data || []);
       setSearched(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao buscar agendamentos:", error);
-      showErrorModal("Erro", error instanceof Error ? error.message : "Erro ao buscar agendamentos. Tente novamente.");
+      showErrorModal("Erro", error.message || "Erro ao buscar agendamentos. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -98,55 +93,42 @@ export const Cancel = () => {
   const handleOpenModal = (booking: Booking) => {
     setSelectedBooking(booking);
     setIsModalOpen(true);
-    // REMOVIDO: Não precisamos mais limpar o estado do token
-    // setCancelToken("");
   };
 
   const cancelBooking = async () => {
     if (!selectedBooking) return;
 
-    // REMOVIDO: Validação do token não é mais necessária
-    // if (!cancelToken.trim()) { ... }
-
     setLoading(true);
     setIsModalOpen(false);
 
     try {
-      // AJUSTE: Chamada fetch simplificada, sem headers de autenticação desnecessários
-      const response = await fetch(
-        API_URLS.USUARIO_CANCELAR_AGENDAMENTO,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            cpf: selectedBooking.cpf,
-            agendamento_id: selectedBooking.id,
-            // REMOVIDO: 'cancel_token' não é mais enviado
-          }),
-        },
-      );
+      const { data, error } = await supabase.rpc('cancelar_agendamento_usuario', {
+        agendamento_id: selectedBooking.id,
+        cpf_confirmacao: selectedBooking.cpf
+      });
 
-      const result = await response.json();
+      if (error) throw error;
 
-      if (!response.ok) {
+      // Data response check depends on how the function returns generic JSON or not.
+      // Assuming return type json { success: boolean, message?: string, error?: string }
+      const result = data as any;
+
+      if (!result.success) {
         throw new Error(result.error || "Não foi possível cancelar o agendamento.");
       }
 
       setBookings((prev) => prev.filter((b) => b.id !== selectedBooking.id));
-      // REMOVIDO: Não precisamos mais limpar o estado do token
-      // setCancelToken("");
       setSelectedBooking(null);
+
       toast({
         title: "Agendamento cancelado",
         description: result.message || "Seu agendamento foi cancelado com sucesso.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao cancelar agendamento:", error);
       showErrorModal(
         "Erro ao Cancelar",
-        error instanceof Error ? error.message : "Não foi possível realizar o cancelamento.",
+        error.message || "Não foi possível realizar o cancelamento.",
       );
     } finally {
       setLoading(false);
