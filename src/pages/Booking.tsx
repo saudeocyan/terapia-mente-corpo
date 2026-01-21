@@ -188,7 +188,7 @@ export const Booking = () => {
       if (!validationResult) {
         showErrorModal(
           "CPF não Habilitado",
-          "Seu CPF não foi encontrado em nossa base de dados ativa. Por favor, entre em contato imediatamente com a equipe de Saúde da Ocyan para regularizar seu cadastro através do e-mail: saude@ocyan.com"
+          "Seu CPF não foi encontrado em nossa base de dados ativa. Por favor, entre em contato imediatamente com a equipe de Saúde da Ocyan para regularizar seu cadastro."
         );
         return;
       }
