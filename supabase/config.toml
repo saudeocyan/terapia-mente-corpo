@@ -17,8 +17,6 @@ verify_jwt = false
 [functions.exportar-dados]
 verify_jwt = false
 
-[functions.admin-auth]
-verify_jwt = false
 
 [functions.gerenciar-datas]
 verify_jwt = false

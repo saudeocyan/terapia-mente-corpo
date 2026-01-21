@@ -1,5 +1,5 @@
 export const API_URLS = {
-    ADMIN_AUTH: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-auth`,
+
     HORARIOS_DISPONIVEIS: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/horarios-disponiveis`,
     VALIDAR_CPF: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validar-cpf`,
     CRIAR_AGENDAMENTO: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/criar-agendamento`,
