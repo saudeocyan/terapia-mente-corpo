@@ -113,7 +113,7 @@ export const ListaPresenca = () => {
 
     // Configurações de estilo e cores baseadas na Ocyan e design limpo
     const styles = `
-      @page { size: A4 portrait; margin: 10mm; }
+      @page { size: A4 portrait; margin: 10mm 10mm 20mm 10mm; }
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
       
       html, body { 
@@ -171,6 +171,7 @@ export const ListaPresenca = () => {
         width: 100%; 
         border-collapse: collapse; 
         font-size: 10pt; 
+        margin-bottom: 10mm;
       }
       
       thead th { 
@@ -218,14 +219,17 @@ export const ListaPresenca = () => {
       
       .footer {
         position: fixed;
-        bottom: 5mm;
+        bottom: 0;
         left: 0;
         right: 0;
-        text-align: center;
+        height: 15mm;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         font-size: 8pt;
         color: #94a3b8;
         border-top: 1px solid #e2e8f0;
-        padding-top: 2mm;
+        background: white;
       }
     `;
 
