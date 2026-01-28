@@ -2,142 +2,205 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Layout } from "@/components/Layout";
-import { Calendar, Clock, Users, Heart, Info, ArrowRight, Shield } from "lucide-react";
+import { Calendar, CalendarX, Clock, Heart, Info, ArrowRight, Shield, Sparkles, Droplets, Leaf, Award } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
+
 export const Home = () => {
   const navigate = useNavigate();
-  return <Layout>
-      {/* Background Image */}
-      <div 
-        className="fixed inset-0 z-0 opacity-10"
-        style={{
-          backgroundImage: `url('/lovable-uploads/58badbf8-dd65-43ef-9e20-7cf00a2634a1.png')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat'
-        }}
-      />
-      <div className="relative z-10 max-w-6xl mx-auto space-y-12">
-        {/* Hero Section */}
-        <div className="text-center space-y-6 animate-slide-up">
-          <div className="inline-flex items-center gap-2 bg-secondary-light/20 text-secondary-dark px-4 py-2 rounded-full text-sm font-medium">
-            <Heart className="w-4 h-4" />
-            Passaporte Saúde Ocyan
-          </div>
-          
-          <h1 className="text-5xl md:text-6xl font-bold gradient-text leading-tight">Terapia Mente e Corpo</h1>
-          <h2 className="text-2xl md:text-3xl text-foreground/80 font-medium">Seu momento de relaxamento começa aqui.</h2>
-          
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">Desfrute de sessões de shiatsu para promover seu bem-estar físico e mental. 
-Um momento especial dedicado ao seu equilíbrio e relaxamento durante o dia de trabalho.</p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-8">
-            <Button onClick={() => navigate("/agendar")} className="btn-hero min-w-64">
-              <Calendar className="w-5 h-5 mr-2" />
-              Agendar Sessão
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-            
-            <Button variant="outline" onClick={() => navigate("/regras")} className="btn-outline-primary min-w-64">
-              <Info className="w-5 h-5 mr-2" />
-              Regras de Uso
-            </Button>
-            
-            <Button variant="outline" onClick={() => navigate("/cancelar")} className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground min-w-64">
-              Consultar/Cancelar Agendamento
-            </Button>
-          </div>
-        </div>
+  const [sessionCount, setSessionCount] = useState<number | null>(null);
+  const [userName, setUserName] = useState<string>("");
+  const [loadingStats, setLoadingStats] = useState(true);
 
-        {/* Benefits Cards */}
-        <div className="grid md:grid-cols-3 gap-6 animate-fade-in">
-          <Card className="card-gradient hover-lift border-0">
-            <CardHeader className="text-center pb-4">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Clock className="w-8 h-8 text-primary" />
-              </div>
-              <CardTitle className="text-xl">Sessões de 20 minutos</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              <CardDescription className="text-base">Tempo ideal para relaxar e recarregar suas energias durante o dia</CardDescription>
-            </CardContent>
-          </Card>
+  useEffect(() => {
+    checkUserStats();
+  }, []);
 
-          <Card className="card-gradient hover-lift border-0">
-            <CardHeader className="text-center pb-4">
-              <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Heart className="w-8 h-8 text-secondary" />
-              </div>
-              <CardTitle className="text-xl">Pausa na Rotina</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              <CardDescription className="text-base">Pequenas pausas, grandes impactos na sua qualidade de vida</CardDescription>
-            </CardContent>
-          </Card>
+  const checkUserStats = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
 
-          <Card className="card-gradient hover-lift border-0">
-            <CardHeader className="text-center pb-4">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-primary" />
-              </div>
-              <CardTitle className="text-xl">Terapeutas Qualificados</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              <CardDescription className="text-base">
-                Profissionais qualificados em massoterapia para garantir o melhor atendimento
-              </CardDescription>
-            </CardContent>
-          </Card>
-        </div>
+      if (user) {
+        // Fetch profile name
+        // @ts-ignore - profiles table exists in DB but not in types
+        const { data: profile } = await supabase
+          .from('profiles' as any)
+          .select('nome')
+          .eq('id', user.id)
+          .single();
 
-        {/* Quick Info */}
-        <Card className="bg-gradient-to-r from-primary/5 to-secondary/5 border-primary/20 animate-scale-in">
-          <CardContent className="p-8">
-            <div className="text-center space-y-4">
-              <h3 className="text-2xl font-bold text-foreground">
-                Como funciona?
-              </h3>
-              <div className="grid md:grid-cols-4 gap-6 mt-8">
-                <div className="text-center space-y-2">
-                  <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center mx-auto text-white font-bold text-lg">
-                    1
-                  </div>
-                  <p className="font-medium">Escolha data e horário</p>
-                </div>
-                <div className="text-center space-y-2">
-                  <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center mx-auto text-white font-bold text-lg">
-                    2
-                  </div>
-                  <p className="font-medium">Valide seu cadastro</p>
-                </div>
-                <div className="text-center space-y-2">
-                  <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center mx-auto text-white font-bold text-lg">
-                    3
-                  </div>
-                  <p className="font-medium">Confirme o agendamento</p>
-                </div>
-                <div className="text-center space-y-2">
-                  <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center mx-auto text-white font-bold text-lg">
-                    ✓
-                  </div>
-                  <p className="font-medium">Receba confirmação e guarde o seu token</p>
-                </div>
+        if (profile?.nome) {
+          setUserName(profile.nome.split(' ')[0]); // First name
+
+          // Try to link profile -> cpf_habilitado -> agendamentos
+          // Note: This relies on name matching which is a best-effort approach given current schema limitations (no direct user_id link in agendamentos)
+          const { data: cpfData } = await supabase
+            .from('cpf_habilitado')
+            .select('cpf_hash')
+            .eq('nome', profile.nome)
+            .maybeSingle();
+
+          if (cpfData?.cpf_hash) {
+            const { count } = await supabase
+              .from('agendamentos')
+              .select('*', { count: 'exact', head: true })
+              .eq('cpf_hash', cpfData.cpf_hash)
+              .eq('status', 'realizado');
+
+            setSessionCount(count || 0);
+          } else {
+            // Fallback: If we can't find by name match in cpf_habilitado, maybe try name match directly in agendamentos?
+            // Or just show 0 if new user.
+            setSessionCount(0);
+          }
+        }
+      } else {
+        setSessionCount(null); // Not logged in
+      }
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  return (
+    <Layout>
+      <div className="space-y-16 pb-12 animate-fade-in">
+
+        {/* Hero Section - Split View */}
+        <section className="relative grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center min-h-[80vh] lg:min-h-[600px]">
+
+          {/* Left Column: Content */}
+          <div className="space-y-8 order-2 lg:order-1 px-4 lg:pl-8">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 bg-primary/10 text-primary-dark px-4 py-2 rounded-full text-sm font-medium animate-slide-up">
+                <Sparkles className="w-4 h-4" />
+                <span>Passaporte Saúde Ocyan</span>
               </div>
+
+              <h1 className="text-4xl lg:text-5xl xl:text-6xl font-light tracking-tight text-slate-800 leading-[1.15]">
+                Recarregue sua <br />
+                <span className="font-bold text-primary">Energia Vital</span>
+              </h1>
+
+              <p className="text-lg text-slate-500 max-w-lg leading-relaxed">
+                Um espaço dedicado ao seu equilíbrio. Desconecte-se da rotina e cuide do seu bem-estar físico e mental com nossas sessões de shiatsu.
+              </p>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Admin Access */}
-        <div className="text-center pt-8 border-t border-border/50">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate("/admin/login")} 
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Shield className="w-4 h-4 mr-2" />
-            Área Administrativa
-          </Button>
-        </div>
+            {/* Gamification / Stats Component */}
+            {loadingStats ? (
+              <div className="h-20 w-full bg-slate-50 animate-pulse rounded-xl" />
+            ) : (
+              <div className="bg-white/80 backdrop-blur-sm border border-slate-100 p-5 rounded-2xl shadow-soft flex items-center gap-5 max-w-md transform transition-all hover:scale-[1.02] duration-300">
+                <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm",
+                  sessionCount && sessionCount > 0 ? "bg-amber-100 text-amber-600" : "bg-primary/10 text-primary")}>
+                  {sessionCount && sessionCount > 0 ? <Award className="w-6 h-6" /> : <Leaf className="w-6 h-6" />}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">
+                    {userName ? `Bem-vindo(a), ${userName}` : "Jornada de Bem-Estar"}
+                  </p>
+                  <p className="text-lg font-semibold text-slate-800">
+                    {sessionCount === null
+                      ? "Comece sua jornada hoje"
+                      : sessionCount === 0
+                        ? "Agende sua primeira sessão"
+                        : `Você já realizou ${sessionCount} sessões de autocuidado`}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+              <Button onClick={() => navigate("/agendar")} className="btn-hero h-14 text-lg px-8 rounded-2xl group">
+                <Calendar className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                Agendar Sessão
+                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
+
+              <Button variant="outline" onClick={() => navigate("/regras")} className="h-14 text-lg px-8 rounded-2xl border-2 border-slate-200 hover:border-primary hover:text-primary hover:bg-transparent transition-colors">
+                Regras de Uso
+              </Button>
+            </div>
+
+            <div className="pt-4 flex items-center gap-4 text-sm text-slate-400">
+              <Button variant="link" onClick={() => navigate("/cancelar")} className="text-slate-400 hover:text-destructive p-0 h-auto font-normal">
+                Cancelar agendamento
+              </Button>
+              <span>•</span>
+              <Button variant="link" onClick={() => navigate("/admin/login")} className="text-slate-400 hover:text-primary p-0 h-auto font-normal">
+                <Shield className="w-3 h-3 mr-1" />
+                Área Administrativa
+              </Button>
+            </div>
+          </div>
+
+          {/* Right Column: Immersive Image */}
+          <div className="order-1 lg:order-2 h-[400px] lg:h-[700px] relative rounded-3xl overflow-hidden shadow-2xl shadow-primary/10 group">
+            <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent z-10 opacity-60 group-hover:opacity-50 transition-opacity duration-500" />
+            <div
+              className="absolute inset-0 bg-cover bg-center transform group-hover:scale-105 transition-transform duration-700"
+              style={{
+                backgroundImage: `url('/lovable-uploads/58badbf8-dd65-43ef-9e20-7cf00a2634a1.png')`
+              }}
+            />
+
+            {/* Floating Badge on Image */}
+            <div className="absolute bottom-10 left-10 z-20 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-lg max-w-xs animate-slide-up" style={{ animationDelay: '0.2s' }}>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-xs font-bold text-primary tracking-wider uppercase">Terapia Ocyan</span>
+              </div>
+              <p className="text-slate-700 font-medium text-sm leading-relaxed">
+                "O equilíbrio entre corpo e mente é a chave para a alta performance sustentável."
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Benefits Section */}
+        <section className="grid md:grid-cols-3 gap-8 px-4">
+          {[
+            {
+              icon: Clock,
+              title: "Foco & Produtividade",
+              desc: "20 minutos estratégicos para renovar sua atenção plena.",
+              color: "text-blue-500",
+              bg: "bg-blue-50"
+            },
+            {
+              icon: Droplets, // representing relief/flow
+              title: "Alívio de Tensão",
+              desc: "Técnicas específicas para liberar nódulos de estresse.",
+              color: "text-teal-500",
+              bg: "bg-teal-50"
+            },
+            {
+              icon: Leaf,
+              title: "Redução de Estresse",
+              desc: "Diminua os níveis de cortisol e aumente seu bem-estar.",
+              color: "text-emerald-500",
+              bg: "bg-emerald-50"
+            }
+          ].map((item, idx) => (
+            <Card key={idx} className="border-0 shadow-sm hover:shadow-soft transition-all duration-300 hover:-translate-y-1 bg-white group">
+              <CardContent className="p-8 text-center space-y-4">
+                <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center mx-auto transition-colors duration-300", item.bg, "group-hover:bg-opacity-80")}>
+                  <item.icon className={cn("w-8 h-8", item.color)} strokeWidth={1.5} />
+                </div>
+                <h3 className="text-xl font-semibold text-slate-800">{item.title}</h3>
+                <p className="text-slate-500 leading-relaxed">
+                  {item.desc}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </section>
 
       </div>
-    </Layout>;
+    </Layout>
+  );
 };

@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info'
-};
+import { corsHeaders, hashCpf } from "shared/crypto.ts";
 
 const handler = async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -25,19 +21,15 @@ const handler = async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Hash do CPF
-    const cpfLimpo = cpf.replace(/\D/g, '');
-    const msgBuffer = new TextEncoder().encode(cpfLimpo);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const cpfHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    // Use Salted Hash
+    const cpfHash = await hashCpf(cpf);
 
     // Verificar se CPF está habilitado
     const { data: cpfData, error: cpfError } = await supabase
       .from('cpf_habilitado')
       .select('cpf_hash, nome, area')
       .eq('cpf_hash', cpfHash)
-      .single();
+      .maybeSingle();
 
     if (cpfError || !cpfData) {
       return new Response(JSON.stringify({ error: 'CPF não está habilitado para agendamento' }), {
@@ -96,11 +88,12 @@ const handler = async (req: Request) => {
 
     // Criar agendamento
     const nomeCompleto = cpfData.nome || nome;
+
     const { data: novoAgendamento, error } = await supabase
       .from('agendamentos')
       .insert({
         nome: nomeCompleto,
-        cpf_hash: cpfHash,
+        cpf_hash: cpfHash, // Using salted hash
         data,
         horario,
         status: 'confirmado',
@@ -111,13 +104,9 @@ const handler = async (req: Request) => {
 
     if (error) {
       console.error('Erro ao criar agendamento:', error);
-      return new Response(JSON.stringify({ error: 'Erro ao criar agendamento' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
+      throw error;
     }
 
-    // Retornar sucesso
     return new Response(JSON.stringify({
       sucesso: true,
       agendamento: novoAgendamento,
@@ -128,7 +117,6 @@ const handler = async (req: Request) => {
     });
 
   } catch (error) {
-    // ✅ CORREÇÃO: Type guard adicionado
     const errorMessage = error instanceof Error ? error.message : 'Erro interno desconhecido';
     console.error('Erro ao processar agendamento:', errorMessage);
 

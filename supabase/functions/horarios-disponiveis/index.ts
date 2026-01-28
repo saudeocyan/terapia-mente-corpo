@@ -39,7 +39,7 @@ const handler = async (req: Request): Promise<Response> => {
     if (dataError || !dataDisponivel) {
       console.log('Data não está disponível para agendamentos:', data);
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           horarios: [],
           mensagem: 'Esta data não está disponível para agendamentos'
         }),
@@ -80,94 +80,76 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`Verificando horários para ${data}. É hoje? ${eHoje}. Hora atual: ${horaAtualBrasil.getHours()}:${horaAtualBrasil.getMinutes()}`);
 
     const horarios = [];
-    let horaAtual = horaInicio;
 
-    while (horaAtual < horaFim) {
-      // Verificar se o horário atual conflita com a pausa de almoço
-      if (pausaAlmocoAtiva && pausaAlmocoInicio && pausaAlmocoFim) {
-        // Converter horários para minutos para facilitar comparação
-        const [horaAtualH, horaAtualM] = horaAtual.split(':').map(Number);
-        const [pausaInicioH, pausaInicioM] = pausaAlmocoInicio.split(':').map(Number);
-        const [pausaFimH, pausaFimM] = pausaAlmocoFim.split(':').map(Number);
-        
-        const minutoAtual = horaAtualH * 60 + horaAtualM;
-        const minutoPausaInicio = pausaInicioH * 60 + pausaInicioM;
-        const minutoPausaFim = pausaFimH * 60 + pausaFimM;
-        const minutoFimSessao = minutoAtual + duracaoSessao;
-        
-        // Se a sessão começar ou terminar durante a pausa, pular
-        if ((minutoAtual >= minutoPausaInicio && minutoAtual < minutoPausaFim) ||
-            (minutoFimSessao > minutoPausaInicio && minutoFimSessao <= minutoPausaFim) ||
-            (minutoAtual < minutoPausaInicio && minutoFimSessao > minutoPausaFim)) {
-          
-          // Calcular próximo horário (pular para depois da pausa se necessário)
-          const [horas, minutos] = horaAtual.split(':').map(Number);
-          let totalMinutos = horas * 60 + minutos + duracaoSessao + intervalo;
-          
-          // Se o próximo horário ainda estiver na pausa, pular para depois da pausa
-          if (totalMinutos <= minutoPausaFim) {
-            totalMinutos = minutoPausaFim;
-          }
-          
-          const novasHoras = Math.floor(totalMinutos / 60);
-          const novosMinutos = totalMinutos % 60;
-          horaAtual = `${novasHoras.toString().padStart(2, '0')}:${novosMinutos.toString().padStart(2, '0')}`;
-          continue;
+    // --- LOGICA DE CUSTOM SLOTS ---
+    const customSlots: string[] | null = dataDisponivel.custom_slots;
+
+    if (customSlots && customSlots.length > 0) {
+      console.log("Usando slots personalizados:", customSlots);
+      // Se tiver custom slots, iteramos sobre eles em vez de gerar
+      for (const time of customSlots) {
+        // Ignoramos a lógica de pausa de almoço automática aqui, pois o admin definiu manual
+        // Mas AINDA precisamos checar se já está ocupado e se é futuro (se for hoje)
+
+        // Buscar agendamentos existentes neste horário
+        // NOTE: 'horario' in DB is text and formatted as HH:mm:00, while time (custom_slots) is HH:mm.
+        // We must append :00 for exact match.
+        const { data: agendamentosExistentes } = await supabase
+          .from('agendamentos')
+          .select('id, cpf_hash')
+          .eq('data', data)
+          .eq('horario', time + ':00')
+          .eq('status', 'confirmado');
+
+        // Check for Admin Block (SYSTEM_BLOCK)
+        const isBlocked = agendamentosExistentes?.some((a: any) => a.cpf_hash === 'SYSTEM_BLOCK');
+
+        let vagasDisponiveis = 0;
+
+        if (isBlocked) {
+          vagasDisponiveis = 0;
+        } else {
+          const vagasOcupadas = agendamentosExistentes?.length || 0;
+          vagasDisponiveis = config.vagas_por_horario - vagasOcupadas;
         }
-      }
 
-      // Buscar agendamentos existentes neste horário
-      const { data: agendamentosExistentes } = await supabase
-        .from('agendamentos')
-        .select('id')
-        .eq('data', data)
-        .eq('horario', horaAtual)
-        .eq('status', 'confirmado');
+        if (vagasDisponiveis > 0) {
+          if (eHoje) {
+            const [h, m] = time.split(':').map(Number);
+            const slotMin = h * 60 + m;
+            const nowMin = horaAtualBrasil.getHours() * 60 + horaAtualBrasil.getMinutes();
 
-      const vagasOcupadas = agendamentosExistentes?.length || 0;
-      const vagasDisponiveis = config.vagas_por_horario - vagasOcupadas;
-
-      // MODIFICADO: Verificar se há vagas e se o horário não é passado (caso seja hoje)
-      if (vagasDisponiveis > 0) {
-        // Se é hoje, verificar se o horário já passou
-        if (eHoje) {
-          const [horaSlot, minutoSlot] = horaAtual.split(':').map(Number);
-          const horaSlotEmMinutos = horaSlot * 60 + minutoSlot;
-          
-          const horaAtualEmMinutos = horaAtualBrasil.getHours() * 60 + horaAtualBrasil.getMinutes();
-          
-          // Só adiciona se o horário for no futuro
-          if (horaSlotEmMinutos > horaAtualEmMinutos) {
+            if (slotMin > nowMin) {
+              horarios.push({
+                horario: time,
+                vagas_disponiveis: vagasDisponiveis,
+                vagas_total: config.vagas_por_horario
+              });
+            } else {
+              console.log(`Custom Slot ${time} ignorado (já passou)`);
+            }
+          } else {
             horarios.push({
-              horario: horaAtual,
+              horario: time,
               vagas_disponiveis: vagasDisponiveis,
               vagas_total: config.vagas_por_horario
             });
-          } else {
-            console.log(`Horário ${horaAtual} ignorado (já passou)`);
           }
-        } else {
-          // Se não é hoje, adiciona normalmente
-          horarios.push({
-            horario: horaAtual,
-            vagas_disponiveis: vagasDisponiveis,
-            vagas_total: config.vagas_por_horario
-          });
         }
       }
 
-      // Calcular próximo horário
-      const [horas, minutos] = horaAtual.split(':').map(Number);
-      const totalMinutos = horas * 60 + minutos + duracaoSessao + intervalo;
-      const novasHoras = Math.floor(totalMinutos / 60);
-      const novosMinutos = totalMinutos % 60;
-      horaAtual = `${novasHoras.toString().padStart(2, '0')}:${novosMinutos.toString().padStart(2, '0')}`;
+    } else {
+      // --- LOGICA RESTRITA (MANUAL APENAS) ---
+      // Se não houver custom_slots, não geramos nada automaticamente.
+      // O usuário solicitou explicitamente: "remova os horários 'definidos'... todo horário setado deve ser pelo 'modo personalizado'"
+      console.log("Sem custom_slots definidos para data ativa. Retornando 0 slots.");
+      // Nenhuma ação necessária, array 'horarios' permanece vazio.
     }
 
     console.log(`Total de horários disponíveis retornados: ${horarios.length}`);
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         horarios,
         data,
         configuracao: {
