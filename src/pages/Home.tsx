@@ -127,8 +127,8 @@ export const Home = () => {
             </div>
 
             <div className="pt-4 flex items-center gap-4 text-sm text-slate-400">
-              <Button variant="link" onClick={() => navigate("/cancelar")} className="text-slate-400 hover:text-destructive p-0 h-auto font-normal">
-                Cancelar agendamento
+              <Button variant="link" onClick={() => navigate("/cancelar")} className="text-slate-600 hover:text-destructive p-0 h-auto font-medium text-base decoration-slate-300 underline-offset-4 hover:decoration-destructive transition-all">
+                Consultar/Cancelar Agendamento
               </Button>
               <span>•</span>
               <Button variant="link" onClick={() => navigate("/admin/login")} className="text-slate-400 hover:text-primary p-0 h-auto font-normal">

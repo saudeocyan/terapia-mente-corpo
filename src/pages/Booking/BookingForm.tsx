@@ -65,7 +65,7 @@ export const BookingForm = ({ cpf, nome, sessionCount, onCpfChange, onConfirm, l
                                 <User className="w-5 h-5 text-secondary mt-0.5" />
                                 <div>
                                     <p className="text-xs text-secondary-dark uppercase font-bold tracking-wider">Integrante Identificado</p>
-                                    <p className="text-lg font-medium text-slate-800">{firstName} {nome.split(' ').slice(1).join(' ')}</p>
+                                    <p className="text-lg font-medium text-slate-800">{firstName}</p>
                                 </div>
                             </div>
 
