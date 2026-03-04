@@ -38,6 +38,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+interface SyncReport {
+  adicionados: number;
+  atualizados: number;
+  removidos: number;
+  agendamentos_movidos: number;
+  duplicatas_ignoradas: number;
+  nomes_adicionados: string[];
+  nomes_atualizados: string[];
+  nomes_removidos: string[];
+}
+
 interface CpfHabilitado {
   id: string;
   cpf_hash: string;
@@ -54,6 +65,8 @@ export const AdminCpfsHabilitados = () => {
   const [novoNome, setNovoNome] = useState("");
   const [novaArea, setNovaArea] = useState("");
   const [busca, setBusca] = useState("");
+  const [syncReport, setSyncReport] = useState<SyncReport | null>(null);
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -177,6 +190,17 @@ export const AdminCpfsHabilitados = () => {
     }
   };
 
+  const baixarModeloPlanilha = () => {
+    const modelo = [
+      { CPF: "12345678901", Nome: "Nome do Colaborador", Unidade: "Sede" },
+      { CPF: "98765432100", Nome: "Outro Colaborador", Unidade: "Filial" }
+    ];
+    const ws = XLSX.utils.json_to_sheet(modelo);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Modelo_CPFs");
+    XLSX.writeFile(wb, "Modelo_Importacao_CPFs.xlsx");
+  };
+
   const handleUploadPlanilha = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -192,21 +216,7 @@ export const AdminCpfsHabilitados = () => {
       const sheet = workbook.Sheets[sheetName];
       const json: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
-      // 1. O frontend continua responsável por ler e limpar os dados da planilha
-      // PENDING: Edge function 'atualizar-cpfs-ativos' also needs update to handle hashing!
-      // For now, warning user or leaving as is (will break if edge function inserts directly)
-
-      // We will loop and add one by one via RPC for safety in this version, 
-      // or we assume the Edge Function will be updated separately. 
-      // Given the scope, let's use the individual add logic for bulk? No, that's too slow.
-      // We'll rely on the existing Edge Function flow BUT note it needs update.
-      // However, for this task, I cannot update the Edge Function easily if I don't see it.
-      // I'll stick to the existing call but it might fail if the DB rejects 'cpf' insert.
-
-      // Actually, let's modify the frontend to iterate and call RPC for robustness if the list isn't huge.
-      // Or just warn that bulk upload might fail.
-
-      const registros = json.map((row) => {
+      const registros = json.map((row: any) => {
         const cpfRaw = String(row.CPF || row.cpf || '').replace(/\D/g, '');
         const nome = String(row.Nome || row.nome || '').trim();
         const area = String(row.Unidade || row.Área || row.Setor || row.area || '').trim();
@@ -219,24 +229,24 @@ export const AdminCpfsHabilitados = () => {
         return;
       }
 
-      // Using serial RPC calls for now to ensure hashing (Temporary solution for bulk)
-      let sucesso = 0;
-      for (const reg of registros) {
-        const { error } = await supabase.rpc('manage_cpf_habilitado', {
-          action_type: 'insert',
-          cpf_param: reg.cpf,
-          nome_param: reg.nome,
-          area_param: reg.area
-        });
-        if (!error) sucesso++;
-      }
-
-      await fetchCpfs(); // Atualiza a lista de CPFs visível na página
-
-      toast({
-        title: 'Sincronização Concluída',
-        description: `${sucesso} registros processados/adicionados.`,
+      // NOVO FLUXO DE BULK SYNC via Edge Function
+      const { data, error } = await supabase.functions.invoke('atualizar-cpfs-ativos', {
+        body: registros
       });
+
+      if (error) throw error;
+
+      await fetchCpfs(); // Atualiza a lista de CPFs visível na tela
+
+      if (data && data.detalhes) {
+        setSyncReport(data.detalhes);
+        setIsReportOpen(true);
+      } else {
+        toast({
+          title: 'Sincronização Concluída',
+          description: data?.mensagem || 'Planilha processada com sucesso.',
+        });
+      }
 
     } catch (err) {
       console.error('Erro ao importar planilha:', err);
@@ -396,22 +406,33 @@ export const AdminCpfsHabilitados = () => {
                     Formato esperado: CPF, Nome, Unidade (uma linha por colaborador)
                   </p>
                 </div>
-                <div>
-                  <input
-                    type="file"
-                    accept=".csv,.xlsx,.xls"
-                    onChange={handleUploadPlanilha}
-                    className="hidden"
-                    id="upload-planilha"
-                  />
-                  <Label htmlFor="upload-planilha">
-                    <Button variant="outline" className="cursor-pointer" asChild>
-                      <span>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Selecionar Arquivo
-                      </span>
-                    </Button>
-                  </Label>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <div className="w-full sm:w-auto">
+                    <input
+                      type="file"
+                      accept=".csv,.xlsx,.xls"
+                      onChange={handleUploadPlanilha}
+                      className="hidden"
+                      id="upload-planilha"
+                    />
+                    <Label htmlFor="upload-planilha" className="m-0 w-full">
+                      <Button variant="outline" className="cursor-pointer w-full sm:w-auto" asChild>
+                        <span>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Selecionar Arquivo
+                        </span>
+                      </Button>
+                    </Label>
+                  </div>
+
+                  <Button
+                    variant="secondary"
+                    className="w-full sm:w-auto cursor-pointer"
+                    onClick={baixarModeloPlanilha}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar Modelo de Planilha
+                  </Button>
                 </div>
               </div>
             </div>
@@ -508,6 +529,91 @@ export const AdminCpfsHabilitados = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de Relatório de Sincronização */}
+      <AlertDialog open={isReportOpen} onOpenChange={setIsReportOpen}>
+        <AlertDialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl text-primary flex items-center gap-2">
+              <Upload className="h-6 w-6" />
+              Relatório de Sincronização em Lote
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base pt-2 text-slate-600">
+              O cruzamento da sua planilha com o banco de dados foi concluído transacionalmente. Veja o resumo exato do que foi feito:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {syncReport && (
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="bg-green-50 p-4 rounded-xl border border-green-100 flex flex-col items-center justify-center">
+                  <p className="text-3xl font-bold text-green-600">{syncReport.adicionados}</p>
+                  <p className="text-sm font-medium text-green-800 mt-1">Novos</p>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex flex-col items-center justify-center">
+                  <p className="text-3xl font-bold text-blue-600">{syncReport.atualizados}</p>
+                  <p className="text-sm font-medium text-blue-800 mt-1">Atualizados</p>
+                </div>
+                <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex flex-col items-center justify-center">
+                  <p className="text-3xl font-bold text-red-600">{syncReport.removidos}</p>
+                  <p className="text-sm font-medium text-red-800 mt-1">Removidos</p>
+                </div>
+              </div>
+
+              {syncReport.duplicatas_ignoradas > 0 && (
+                <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-lg border border-amber-200">
+                  ⚠️ <strong>{syncReport.duplicatas_ignoradas}</strong> registros duplicados dentro da própria planilha enviada foram ignorados.
+                </p>
+              )}
+
+              <div className="space-y-5 text-sm mt-6">
+                {syncReport.nomes_adicionados.length > 0 && (
+                  <div className="bg-white p-4 rounded-lg border border-slate-100">
+                    <h4 className="font-semibold text-green-700 flex items-center gap-2 mb-2">
+                      <Plus className="h-4 w-4" /> Colaboradores Adicionados ({syncReport.adicionados})
+                    </h4>
+                    <p className="text-xs text-slate-500 mb-2">Pessoas inéditas recém inseridas no sistema.</p>
+                    <ul className="list-disc pl-5 text-slate-600 max-h-32 overflow-y-auto space-y-1">
+                      {syncReport.nomes_adicionados.map((nome, i) => <li key={i}>{nome}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {syncReport.nomes_atualizados.length > 0 && (
+                  <div className="bg-white p-4 rounded-lg border border-slate-100">
+                    <h4 className="font-semibold text-blue-700 flex items-center gap-2 mb-2">
+                      <Users className="h-4 w-4" /> Cadastros Mantidos/Atualizados ({syncReport.atualizados})
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      Colaboradores que já estavam na base e continuam ativos (os dados de Nome/Unidade foram atualizados caso tenham mudado).
+                    </p>
+                  </div>
+                )}
+
+                {syncReport.nomes_removidos.length > 0 && (
+                  <div className="bg-white p-4 rounded-lg border border-slate-100">
+                    <h4 className="font-semibold text-red-700 flex items-center gap-2 mb-2">
+                      <Trash2 className="h-4 w-4" /> Colaboradores Removidos ({syncReport.removidos})
+                    </h4>
+                    <p className="text-xs text-slate-500 mb-2">
+                      Pessoas que estavam no banco de dados e <strong>não</strong> apareceram na sua nova planilha.
+                    </p>
+                    <ul className="list-disc pl-5 text-slate-600 max-h-32 overflow-y-auto space-y-1">
+                      {syncReport.nomes_removidos.map((nome, i) => <li key={i}>{nome}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsReportOpen(false)} className="w-full sm:w-auto h-11 px-8 rounded-full">
+              Entendido e Concluído
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 };

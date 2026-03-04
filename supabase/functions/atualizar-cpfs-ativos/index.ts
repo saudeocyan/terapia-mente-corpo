@@ -1,10 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient, SupabaseClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-import { verifyAuth } from '../_shared/auth.ts';
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 // CORS Headers
 const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? '*',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
@@ -17,57 +16,39 @@ interface CpfRecord {
   area: string;
 }
 
-// Interface para os dados copiados para histórico
-interface AgendamentoHistoricoRecord {
-  id: string;
-  nome: string;
-  cpf_hash: string;
-  data: string;
-  horario: string;
-  status: string;
-  area: string;
-  criado_em: string;
-}
-
 // Função auxiliar para copiar agendamentos ao histórico
-async function copiarAgendamentosParaHistorico(supabase: SupabaseClient, cpfsHashes: string[]) {
+async function copiarAgendamentosParaHistorico(supabase: any, cpfsHashes: string[]) {
   if (cpfsHashes.length === 0) {
-    console.log("Nenhum CPF para remover, logo, nenhum agendamento para copiar ao histórico.");
+    console.log("Nenhum CPF para remover.");
     return 0;
   }
 
-  console.log(`Buscando agendamentos para ${cpfsHashes.length} CPFs para copiar ao histórico...`);
-
-  // Update columns to select cpf_hash instead of cpf
-  const colunasParaCopiar = 'id, nome, cpf_hash, data, horario, status, area, criado_em';
-
+  console.log(`Buscando agendamentos para ${cpfsHashes.length} CPFs...`);
   const { data: agendamentosParaCopiar, error: erroBusca } = await supabase
     .from('agendamentos')
-    .select(colunasParaCopiar)
+    .select('id, nome, cpf_hash, data, horario, status, area, criado_em')
     .in('cpf_hash', cpfsHashes);
 
   if (erroBusca) {
-    console.error('Erro ao buscar agendamentos para copiar:', erroBusca);
+    console.error('Erro ao buscar agendamentos:', JSON.stringify(erroBusca));
     throw new Error('Erro ao buscar agendamentos para histórico.');
   }
 
   if (!agendamentosParaCopiar || agendamentosParaCopiar.length === 0) {
-    console.log("Nenhum agendamento encontrado para os CPFs a serem removidos.");
+    console.log("Nenhum agendamento encontrado para os CPFs removidos.");
     return 0;
   }
 
-  console.log(`Encontrados ${agendamentosParaCopiar.length} agendamentos para copiar.`);
-
-  const { error: erroInsercaoHistorico } = await supabase
+  console.log(`Copiando ${agendamentosParaCopiar.length} agendamentos para histórico...`);
+  const { error: erroInsercao } = await supabase
     .from('agendamentos_historico')
-    .insert(agendamentosParaCopiar as AgendamentoHistoricoRecord[]);
+    .insert(agendamentosParaCopiar);
 
-  if (erroInsercaoHistorico) {
-    console.error('Erro ao inserir agendamentos no histórico:', JSON.stringify(erroInsercaoHistorico, null, 2));
-    throw new Error('Erro ao salvar histórico de agendamentos.');
+  if (erroInsercao) {
+    console.error('Erro ao inserir no histórico:', JSON.stringify(erroInsercao));
+    throw new Error(`Erro ao salvar histórico: ${JSON.stringify(erroInsercao)}`);
   }
 
-  console.log(`${agendamentosParaCopiar.length} agendamentos copiados para o histórico.`);
   return agendamentosParaCopiar.length;
 }
 
@@ -78,14 +59,61 @@ serve(async (req) => {
   }
 
   try {
-    await verifyAuth(req);
+    // --- AUTENTICAÇÃO ---
+    console.log('Step 1: Verificando Authorization header...');
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Authorization header ausente ou inválido.' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
-    const supabaseClient = createClient(
+    // Parseia o JWT para extrair o user ID sem precisar de outra lib
+    console.log('Step 2: Parseando JWT para extrair user ID...');
+    const token = authHeader.replace('Bearer ', '');
+    let userId: string;
+    try {
+      const payloadB64 = token.split('.')[1];
+      const payload = JSON.parse(atob(payloadB64));
+      userId = payload.sub;
+      console.log(`User ID extraído: ${userId}`);
+    } catch (e) {
+      return new Response(JSON.stringify({ error: 'Token JWT inválido ou malformado.' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Usa o cliente admin para checar o role sem depender de RLS
+    console.log('Step 3: Criando cliente admin e verificando role...');
+    const adminClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // 'registros' é a lista completa da planilha nova
+    const { data: profileData, error: profileError } = await adminClient
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (profileError) {
+      console.error('Erro ao buscar profile:', JSON.stringify(profileError));
+      return new Response(JSON.stringify({ error: `Erro ao verificar permissão: ${profileError.message}` }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    if (profileData?.role !== 'admin') {
+      console.error(`Acesso negado. Role encontrado: ${profileData?.role}`);
+      return new Response(JSON.stringify({ error: 'Acesso negado: apenas administradores.' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log('Step 4: Admin verificado. Lendo body da requisição...');
     const registros: CpfRecord[] = await req.json();
 
     if (!Array.isArray(registros) || registros.length === 0) {
@@ -95,11 +123,10 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Recebidos ${registros.length} registros.`);
+    console.log(`Step 5: ${registros.length} registros recebidos. Iniciando hash...`);
 
-    // Hash all incoming CPFs
     const registrosComHash = await Promise.all(registros.map(async (r) => {
-      const cpfLimpo = r.cpf.replace(/\D/g, '');
+      const cpfLimpo = String(r.cpf || '').replace(/\D/g, '');
       const msgBuffer = new TextEncoder().encode(cpfLimpo);
       const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -107,91 +134,88 @@ serve(async (req) => {
       return { ...r, cpf_hash: cpfHash };
     }));
 
-    // ✅ CORREÇÃO 1: Remover duplicatas ANTES de processar
     const registrosUnicos = Array.from(
       new Map(registrosComHash.map(r => [r.cpf_hash, r])).values()
     );
-
     const duplicatasRemovidas = registros.length - registrosUnicos.length;
-    if (duplicatasRemovidas > 0) {
-      console.log(`⚠️ Removidas ${duplicatasRemovidas} duplicatas da planilha.`);
+
+    console.log(`Step 6: ${registrosUnicos.length} únicos (${duplicatasRemovidas} duplicatas). Buscando CPFs do banco...`);
+
+    const { data: cpfsAtuaisData, error: erroListagem } = await adminClient
+      .from('cpf_habilitado')
+      .select('cpf_hash, nome');
+
+    if (erroListagem) {
+      console.error('Erro ao listar CPFs:', JSON.stringify(erroListagem));
+      throw new Error(`Erro ao buscar CPFs existentes: ${erroListagem.message}`);
     }
 
-    const { data: cpfsAtuaisData, error: erroListagem } = await supabaseClient
-      .from('cpf_habilitado')
-      .select('cpf_hash');
-
-    if (erroListagem) throw new Error('Erro ao buscar CPFs existentes.');
-
-    // ✅ CORREÇÃO 2: Type assertion explícito para evitar erro TS2345
-    const cpfsAtuaisSet = new Set<string>(
-      (cpfsAtuaisData as Array<{ cpf_hash: string }>)?.map(c => c.cpf_hash) || []
-    );
+    const cpfsAtuaisSet = new Set<string>();
+    const mapNomesAtuais = new Map<string, string>();
+    for (const row of (cpfsAtuaisData ?? [])) {
+      cpfsAtuaisSet.add(row.cpf_hash);
+      if (row.nome) mapNomesAtuais.set(row.cpf_hash, row.nome);
+    }
 
     const cpfsPlanilhaSet = new Set(registrosUnicos.map(r => r.cpf_hash));
-
-    // Identifica CPFs para remover (HASHES)
+    const registrosNovos = registrosUnicos.filter(r => !cpfsAtuaisSet.has(r.cpf_hash));
+    const registrosAtualizados = registrosUnicos.filter(r => cpfsAtuaisSet.has(r.cpf_hash));
     const cpfsParaRemover = Array.from(cpfsAtuaisSet).filter(hash => !cpfsPlanilhaSet.has(hash));
+    const nomesParaRemover = cpfsParaRemover.map(hash => mapNomesAtuais.get(hash) || 'Nome não encontrado');
 
-    console.log(`Identificado -> Remover: ${cpfsParaRemover.length}`);
+    console.log(`Step 7: Novos=${registrosNovos.length}, Atualizar=${registrosAtualizados.length}, Remover=${cpfsParaRemover.length}`);
 
     let agendamentosMovidos = 0;
 
-    // Lógica de Remoção
     if (cpfsParaRemover.length > 0) {
-      console.log("Iniciando processo de cópia para histórico...");
-      agendamentosMovidos = await copiarAgendamentosParaHistorico(supabaseClient, cpfsParaRemover);
+      console.log('Step 8: Removendo CPFs e movendo agendamentos...');
+      agendamentosMovidos = await copiarAgendamentosParaHistorico(adminClient, cpfsParaRemover);
 
-      console.log(`Deletando ${cpfsParaRemover.length} CPFs da tabela cpf_habilitado...`);
-      const { error: erroDeleteCpfs } = await supabaseClient
+      const { error: erroDelete } = await adminClient
         .from('cpf_habilitado')
         .delete()
         .in('cpf_hash', cpfsParaRemover);
 
-      if (erroDeleteCpfs) {
-        console.error('Erro ao deletar CPFs:', erroDeleteCpfs);
-        throw new Error('Erro ao remover CPFs desabilitados.');
+      if (erroDelete) {
+        console.error('Erro ao deletar CPFs:', JSON.stringify(erroDelete));
+        throw new Error(`Erro ao remover CPFs: ${erroDelete.message}`);
       }
-      console.log(`${cpfsParaRemover.length} CPFs removidos com sucesso.`);
+      console.log(`${cpfsParaRemover.length} CPFs removidos.`);
     }
 
-    // ✅ CORREÇÃO 3: Upsert com registros únicos
     if (registrosUnicos.length > 0) {
-      console.log(`Iniciando "upsert" de ${registrosUnicos.length} registros (adicionar/atualizar)...`);
-
-      // Prepare payload for DB (remove original cpf, keep cpf_hash)
+      console.log(`Step 9: Upsert de ${registrosUnicos.length} registros...`);
       const payload = registrosUnicos.map(r => ({
         cpf_hash: r.cpf_hash,
         nome: r.nome,
         area: r.area
       }));
 
-      const { error: erroUpsert } = await supabaseClient
+      const { error: erroUpsert } = await adminClient
         .from('cpf_habilitado')
-        .upsert(payload, {
-          onConflict: 'cpf_hash'
-        });
+        .upsert(payload, { onConflict: 'cpf_hash' });
 
       if (erroUpsert) {
-        console.error('Erro ao fazer upsert de CPFs:', JSON.stringify(erroUpsert, null, 2));
-        throw new Error('Erro ao adicionar/atualizar CPFs.');
+        console.error('Erro no upsert:', JSON.stringify(erroUpsert));
+        throw new Error(`Erro ao salvar CPFs: ${erroUpsert.message}`);
       }
-      console.log(`${registrosUnicos.length} CPFs adicionados/atualizados com sucesso.`);
+      console.log(`Upsert concluído.`);
     }
 
-    // Mensagem final
-    const mensagem = `Sincronização concluída: ${cpfsParaRemover.length} removidos (${agendamentosMovidos} agendamentos movidos), ${registrosUnicos.length} CPFs adicionados/atualizados` +
-      (duplicatasRemovidas > 0 ? `, ${duplicatasRemovidas} duplicatas ignoradas.` : '.');
-
+    const mensagem = `Sincronização concluída: ${registrosNovos.length} adicionados, ${registrosAtualizados.length} atualizados, ${cpfsParaRemover.length} removidos.`;
     console.log(mensagem);
 
     return new Response(JSON.stringify({
       mensagem,
       detalhes: {
-        adicionados_atualizados: registrosUnicos.length,
+        adicionados: registrosNovos.length,
+        atualizados: registrosAtualizados.length,
         removidos: cpfsParaRemover.length,
         agendamentos_movidos: agendamentosMovidos,
-        duplicatas_ignoradas: duplicatasRemovidas
+        duplicatas_ignoradas: duplicatasRemovidas,
+        nomes_adicionados: registrosNovos.map(r => r.nome),
+        nomes_atualizados: registrosAtualizados.map(r => r.nome),
+        nomes_removidos: nomesParaRemover
       }
     }), {
       status: 200,
@@ -199,11 +223,10 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Erro interno desconhecido';
-    console.error('Erro em atualizar-cpfs-ativos:', errorMessage);
-    const status = errorMessage.includes("Acesso não autorizado") || errorMessage.includes("Token inválido") ? 401 : 500;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('ERRO FATAL em atualizar-cpfs-ativos:', errorMessage);
     return new Response(JSON.stringify({ error: errorMessage }), {
-      status: status,
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
