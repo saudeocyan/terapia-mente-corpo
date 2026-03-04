@@ -80,9 +80,17 @@ export const Cancel = () => {
 
       if (error) throw error;
 
-      // Type assertion or mapping might be needed if RPC data doesn't match perfectly, 
-      // but assuming migration aligns with Updated Booking interface:
-      setBookings((data as any[]) || []);
+      // Filtrar apenas agendamentos futuros (data e hora maiores que atual)
+      const now = new Date();
+
+      const futureBookings = (data as any[] || []).filter((booking) => {
+        // Monta a data e hora do agendamento para comparação
+        const dataHoraStr = `${booking.data}T${booking.horario}:00`;
+        const bookingDate = new Date(dataHoraStr);
+        return bookingDate >= now;
+      });
+
+      setBookings(futureBookings);
       setSearched(true);
     } catch (error: any) {
       console.error("Erro ao buscar agendamentos:", error);

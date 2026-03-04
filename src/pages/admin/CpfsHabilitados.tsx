@@ -54,7 +54,7 @@ interface CpfHabilitado {
   cpf_hash: string;
   nome: string;
   area: string;
-  criado_em: string;
+  created_at: string;
 }
 
 export const AdminCpfsHabilitados = () => {
@@ -84,11 +84,12 @@ export const AdminCpfsHabilitados = () => {
 
       if (error) throw error;
       setCpfs(data || []);
-    } catch (error: any) {
-      console.error('Erro ao buscar CPFs:', error);
+    } catch (error) {
+      const err = error as Error;
+      console.error('Erro ao buscar CPFs:', err);
       toast({
         title: "Erro ao carregar dados",
-        description: error.message,
+        description: err.message,
         variant: "destructive",
       });
     } finally {
@@ -138,7 +139,8 @@ export const AdminCpfsHabilitados = () => {
 
       if (error) throw error;
 
-      const res = data as any;
+      interface RpcResponse { success: boolean; message?: string; error?: string; }
+      const res = data as unknown as RpcResponse;
       if (!res.success) {
         throw new Error(res.error || "Erro desconhecido ao adicionar CPF");
       }
@@ -152,11 +154,12 @@ export const AdminCpfsHabilitados = () => {
         title: "CPF adicionado",
         description: res.message || "CPF foi adicionado à lista de habilitados com sucesso.",
       });
-    } catch (error: any) {
-      console.error('Erro ao adicionar CPF:', error);
+    } catch (error) {
+      const err = error as Error;
+      console.error('Erro ao adicionar CPF:', err);
       toast({
         title: "Erro",
-        description: error.message || "Erro ao adicionar CPF",
+        description: err.message || "Erro ao adicionar CPF",
         variant: "destructive",
       });
     }
@@ -214,9 +217,14 @@ export const AdminCpfsHabilitados = () => {
       const workbook = XLSX.read(buffer, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-      const json: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      interface PlanilhaCpf {
+        CPF?: string; cpf?: string;
+        Nome?: string; nome?: string;
+        Unidade?: string; Área?: string; Setor?: string; area?: string;
+      }
+      const json = XLSX.utils.sheet_to_json<PlanilhaCpf>(sheet, { defval: '' });
 
-      const registros = json.map((row: any) => {
+      const registros = json.map((row) => {
         const cpfRaw = String(row.CPF || row.cpf || '').replace(/\D/g, '');
         const nome = String(row.Nome || row.nome || '').trim();
         const area = String(row.Unidade || row.Área || row.Setor || row.area || '').trim();
@@ -265,7 +273,7 @@ export const AdminCpfsHabilitados = () => {
     const dataToExport = cpfs.map(c => ({
       Nome: c.nome,
       Unidade: c.area,
-      Inclusao: new Date(c.criado_em).toLocaleDateString('pt-BR')
+      Inclusao: new Date(c.created_at).toLocaleDateString('pt-BR')
     }));
 
     // Convert to CSV
@@ -322,7 +330,7 @@ export const AdminCpfsHabilitados = () => {
               <div className="text-center">
                 <div className="text-2xl font-bold text-secondary">
                   {cpfs.filter(c => {
-                    const dataCriacao = (c as any).created_at || c.criado_em || "";
+                    const dataCriacao = c.created_at || "";
                     return dataCriacao.split('T')[0] === new Date().toISOString().split('T')[0];
                   }).length}
                 </div>
@@ -494,7 +502,7 @@ export const AdminCpfsHabilitados = () => {
                         <TableCell>{item.nome || '-'}</TableCell>
                         <TableCell>{item.area || '-'}</TableCell>
                         <TableCell>
-                          {new Date(item.criado_em).toLocaleDateString('pt-BR')}
+                          {new Date(item.created_at).toLocaleDateString('pt-BR')}
                         </TableCell>
                         <TableCell className="text-right">
                           <AlertDialog>

@@ -1,69 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Layout } from "@/components/Layout";
-import { Calendar, CalendarX, Clock, Heart, Info, ArrowRight, Shield, Sparkles, Droplets, Leaf, Award } from "lucide-react";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { Calendar, Clock, ArrowRight, Shield, Sparkles, Droplets, Leaf } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Home = () => {
   const navigate = useNavigate();
-  const [sessionCount, setSessionCount] = useState<number | null>(null);
-  const [userName, setUserName] = useState<string>("");
-  const [loadingStats, setLoadingStats] = useState(true);
-
-  useEffect(() => {
-    checkUserStats();
-  }, []);
-
-  const checkUserStats = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (user) {
-        // Fetch profile name
-        // @ts-ignore - profiles table exists in DB but not in types
-        const { data: profile } = await supabase
-          .from('profiles' as any)
-          .select('nome')
-          .eq('id', user.id)
-          .single();
-
-        if (profile?.nome) {
-          setUserName(profile.nome.split(' ')[0]); // First name
-
-          // Try to link profile -> cpf_habilitado -> agendamentos
-          // Note: This relies on name matching which is a best-effort approach given current schema limitations (no direct user_id link in agendamentos)
-          const { data: cpfData } = await supabase
-            .from('cpf_habilitado')
-            .select('cpf_hash')
-            .eq('nome', profile.nome)
-            .maybeSingle();
-
-          if (cpfData?.cpf_hash) {
-            const { count } = await supabase
-              .from('agendamentos')
-              .select('*', { count: 'exact', head: true })
-              .eq('cpf_hash', cpfData.cpf_hash)
-              .eq('status', 'realizado');
-
-            setSessionCount(count || 0);
-          } else {
-            // Fallback: If we can't find by name match in cpf_habilitado, maybe try name match directly in agendamentos?
-            // Or just show 0 if new user.
-            setSessionCount(0);
-          }
-        }
-      } else {
-        setSessionCount(null); // Not logged in
-      }
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    } finally {
-      setLoadingStats(false);
-    }
-  };
 
   return (
     <Layout>
@@ -90,29 +33,20 @@ export const Home = () => {
               </p>
             </div>
 
-            {/* Gamification / Stats Component */}
-            {loadingStats ? (
-              <div className="h-20 w-full bg-slate-50 animate-pulse rounded-xl" />
-            ) : (
-              <div className="bg-white/80 backdrop-blur-sm border border-slate-100 p-5 rounded-2xl shadow-soft flex items-center gap-5 max-w-md transform transition-all hover:scale-[1.02] duration-300">
-                <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm",
-                  sessionCount && sessionCount > 0 ? "bg-amber-100 text-amber-600" : "bg-primary/10 text-primary")}>
-                  {sessionCount && sessionCount > 0 ? <Award className="w-6 h-6" /> : <Leaf className="w-6 h-6" />}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">
-                    {userName ? `Bem-vindo(a), ${userName}` : "Jornada de Bem-Estar"}
-                  </p>
-                  <p className="text-lg font-semibold text-slate-800">
-                    {sessionCount === null
-                      ? "Comece sua jornada hoje"
-                      : sessionCount === 0
-                        ? "Agende sua primeira sessão"
-                        : `Você já realizou ${sessionCount} sessões de autocuidado`}
-                  </p>
-                </div>
+            {/* Gamification / Stats Component (Static) */}
+            <div className="bg-white/80 backdrop-blur-sm border border-slate-100 p-5 rounded-2xl shadow-soft flex items-center gap-5 max-w-md transform transition-all hover:scale-[1.02] duration-300">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-primary/10 text-primary">
+                <Leaf className="w-6 h-6" />
               </div>
-            )}
+              <div>
+                <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">
+                  Jornada de Bem-Estar
+                </p>
+                <p className="text-lg font-semibold text-slate-800">
+                  Comece sua jornada hoje
+                </p>
+              </div>
+            </div>
 
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Button onClick={() => navigate("/agendar")} className="btn-hero h-14 text-lg px-8 rounded-2xl group">
