@@ -1,9 +1,9 @@
-# Documento de Requisitos do Produto (PRD) - Agenda Shiatsu Ocyan
+# Documento de Requisitos do Produto (PRD) - Terapia Mente e Corpo
 
 ## 1. Introdução
 
 ### 1.1 Visão Geral
-"Agenda Shiatsu Ocyan" é uma aplicação web projetada para gerenciar o agendamento de sessões de massagem Shiatsu para os integrantes da Ocyan. O sistema visa agilizar o processo de reserva, garantir acesso justo ao serviço (limitando sessões por semana) e fornecer uma interface administrativa para a equipe de saúde gerenciar agendas, visualizar agendamentos e gerar relatórios.
+"Terapia Mente e Corpo" é uma aplicação web projetada para gerenciar o agendamento de sessões de massagem Shiatsu para os integrantes da Ocyan. O sistema visa agilizar o processo de reserva, garantir acesso justo ao serviço (limitando sessões por semana) e fornecer uma interface administrativa para a equipe de saúde gerenciar agendas, visualizar agendamentos e gerar relatórios.
 
 ### 1.2 Objetivos
 *   **Simplificar o Agendamento:** Fornecer uma interface fácil de usar para os integrantes reservarem suas sessões.
